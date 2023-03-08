@@ -11,7 +11,6 @@ use std::{
 pub mod prelude {
     pub use crate::constants::*;
     pub use anyhow::Result;
-    pub use bitbybit::bitfield;
 }
 
 use decoder::*;
@@ -30,6 +29,7 @@ fn decode_instruction(
     Ok(num_bytes_in_instruction)
 }
 
+#[allow(dead_code)]
 fn write_to_file(input_filepath: PathBuf, output: String) -> Result<()> {
     let output_filename = {
         let mut filename = input_filepath
@@ -57,10 +57,10 @@ fn main() -> Result<()> {
     let decoder = Decoder::new();
 
     let input_filepath =
-        PathBuf::from("../computer_enhance/perfaware/part1/listing_0038_many_register_mov");
+        PathBuf::from("../computer_enhance/perfaware/part1/listing_0039_more_movs");
 
     let instructions = fs::read(&input_filepath)?;
-    println!("{:?}", instructions);
+    // println!("{:?}", instructions);
 
     let mut output = String::new();
     writeln!(output, "bits 16\n")?;
