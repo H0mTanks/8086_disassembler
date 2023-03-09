@@ -14,7 +14,7 @@ impl Decoder {
         //*Set all funcs to stub
         let mut funcs = [decode_stub as DecodeFunc; 0xF * 0xF];
 
-        //* Set indices to MOV as per the machine instruction encoding table
+        //* Set indices to mov as per the machine instruction encoding table
         //TODO: 8C, 8E Segment register movs
         funcs[0x88..=0x8B].fill(decode_mov);
         funcs[0xA0..=0xA3].fill(decode_mov);
@@ -63,7 +63,7 @@ pub fn decode_mov(
 
                 writeln!(
                     output,
-                    "MOV {}, {}",
+                    "mov {}, {}",
                     get_register_name(dest, word),
                     get_register_name(src, word)
                 )?;
@@ -72,16 +72,11 @@ pub fn decode_mov(
                 if mode == 0b00 && rm == 0b110 {
                     //*Direct address case */
                 } else {
-                    //* Write `MOV REG, [reg + reg`
-                    write!(
-                        output,
-                        "MOV {}, [{}",
-                        get_register_name(reg, word),
-                        MEM_ADDR_MODE_MAPPING[rm as usize]
-                    )?;
+                    let mut source_addr_str = String::new();
+                    write!(source_addr_str, "{}", MEM_ADDR_MODE_MAPPING[rm as usize])?;
 
                     //* Check if addr should have displacement
-                    //* by checking the mod field
+                    //* by checking the mode != 0b00
                     //* If yes, write ` + disp
                     if mode != 0b00 {
                         let third_byte = instructions[offset + 2];
@@ -97,11 +92,25 @@ pub fn decode_mov(
 
                         //* No need to print displacement if it's 0
                         if disp != 0 {
-                            write!(output, " + {}", disp)?;
+                            write!(source_addr_str, " + {}", disp)?;
                         }
                     }
 
-                    writeln!(output, "]")?;
+                    if direction {
+                        writeln!(
+                            output,
+                            "mov {}, [{}]",
+                            get_register_name(reg, word),
+                            source_addr_str
+                        )?;
+                    } else {
+                        writeln!(
+                            output,
+                            "mov [{}], {}",
+                            source_addr_str,
+                            get_register_name(reg, word),
+                        )?;
+                    }
                 }
             }
 
@@ -123,7 +132,7 @@ pub fn decode_mov(
                 num_bytes_in_instruction += 1;
             }
 
-            writeln!(output, "MOV {}, {}", get_register_name(reg, word), data)?;
+            writeln!(output, "mov {}, {}", get_register_name(reg, word), data)?;
 
             return Ok(num_bytes_in_instruction);
         }

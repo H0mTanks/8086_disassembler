@@ -1,5 +1,5 @@
 const REGISTER_NAME_MAPPING: [&str; 16] = [
-    "AL", "AX", "CL", "CX", "DL", "DX", "BL", "BX", "AH", "SP", "CH", "BP", "DH", "SI", "BH", "DI",
+    "al", "ax", "cl", "cx", "dl", "dx", "bl", "bx", "ah", "sp", "ch", "bp", "dh", "si", "bh", "di",
 ];
 
 pub fn get_register_name(reg_val: u8, word: bool) -> &'static str {
