@@ -57,7 +57,7 @@ fn main() -> Result<()> {
     let decoder = Decoder::new();
 
     let input_filepath =
-        PathBuf::from("../computer_enhance/perfaware/part1/listing_0039_more_movs");
+        PathBuf::from("../computer_enhance/perfaware/part1/listing_0040_challenge_movs");
 
     let instructions = fs::read(&input_filepath)?;
     // println!("{:?}", instructions);

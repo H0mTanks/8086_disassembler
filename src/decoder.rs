@@ -77,22 +77,28 @@ pub fn decode_mov(
 
                     //* Check if addr should have displacement
                     //* by checking the mode != 0b00
-                    //* If yes, write ` + disp
+                    //? Displacements are signed even though the manual says unsigned?
                     if mode != 0b00 {
                         let third_byte = instructions[offset + 2];
                         num_bytes_in_instruction += 1;
-                        let mut disp = third_byte as u16;
+                        let mut disp = third_byte as i16;
 
                         //* Check for 16bit displacement
                         if mode == 0b10 {
                             let fourth_byte = instructions[offset + 3];
                             num_bytes_in_instruction += 1;
-                            disp = u16::from_le_bytes([third_byte, fourth_byte]);
+                            disp = i16::from_le_bytes([third_byte, fourth_byte]);
                         }
 
                         //* No need to print displacement if it's 0
                         if disp != 0 {
-                            write!(source_addr_str, " + {}", disp)?;
+                            if mode == 0b01 {
+                                //* 8 bit displacement
+                                write!(source_addr_str, " + {}", disp as i8)?;
+                            } else {
+                                //* 16 bit displacement
+                                write!(source_addr_str, " + {}", disp)?;
+                            }
                         }
                     }
 
