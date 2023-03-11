@@ -208,5 +208,36 @@ pub fn decode_mov(
         }
     }
 
+    //* Memory to accumulator or accumulator to memory
+    {
+        let opcode = 0b101000;
+        if (first_byte >> 2) == opcode {
+            let is_acc_to_mem = direction;
+
+            let third_byte = instructions[offset + num_bytes_in_instruction];
+            num_bytes_in_instruction += 1;
+            let direct_address = i16::from_le_bytes([second_byte, third_byte]);
+
+            if is_acc_to_mem {
+                writeln!(
+                    output,
+                    "mov [{}], {}",
+                    direct_address,
+                    get_register_name(0, word)
+                )?;
+            } else {
+                //* memory to accumulator case
+                writeln!(
+                    output,
+                    "mov {}, [{}]",
+                    get_register_name(0, word),
+                    direct_address,
+                )?;
+            }
+
+            return Ok(num_bytes_in_instruction as u8);
+        }
+    }
+
     unreachable!()
 }
