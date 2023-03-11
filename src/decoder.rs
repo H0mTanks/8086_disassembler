@@ -69,14 +69,10 @@ pub fn decode_mov(
             } else {
                 //* Memory to register mode, where mode = 00 | 01 | 10
                 if mode == 0b00 && rm == 0b110 {
-                    //TODO Direct address case
-                    let third_byte = instructions[offset + num_bytes_in_instruction];
-                    num_bytes_in_instruction += 1;
-
-                    let fourth_byte = instructions[offset + num_bytes_in_instruction];
-                    num_bytes_in_instruction += 1;
-
-                    let direct_address = i16::from_le_bytes([third_byte, fourth_byte]);
+                    //* Direct address case
+                    let direct_address =
+                        get_byte_or_word(instructions, offset, &mut num_bytes_in_instruction, true)
+                            as i16;
 
                     writeln!(
                         output,
@@ -92,25 +88,31 @@ pub fn decode_mov(
                     //* by checking the mode != 0b00
                     //? Displacements are signed even though the manual says unsigned?
                     if mode != 0b00 {
-                        let third_byte = instructions[offset + num_bytes_in_instruction];
-                        num_bytes_in_instruction += 1;
-                        let mut disp = third_byte as i16;
-
                         //* Check for 16bit displacement
-                        if mode == 0b10 {
-                            let fourth_byte = instructions[offset + num_bytes_in_instruction];
-                            num_bytes_in_instruction += 1;
-                            disp = i16::from_le_bytes([third_byte, fourth_byte]);
-                        }
+                        let signed_disp = if mode == 0b10 {
+                            get_byte_or_word(
+                                instructions,
+                                offset,
+                                &mut num_bytes_in_instruction,
+                                true,
+                            ) as i16
+                        } else {
+                            get_byte_or_word(
+                                instructions,
+                                offset,
+                                &mut num_bytes_in_instruction,
+                                false,
+                            ) as i16
+                        };
 
                         //* No need to print displacement if it's 0
-                        if disp != 0 {
+                        if signed_disp != 0 {
                             if mode == 0b01 {
                                 //* 8 bit displacement
-                                write!(source_addr_str, " + {}", disp as i8)?;
+                                write!(source_addr_str, " + {}", signed_disp as i8)?;
                             } else {
                                 //* 16 bit displacement
-                                write!(source_addr_str, " + {}", disp)?;
+                                write!(source_addr_str, " + {}", signed_disp)?;
                             }
                         }
                     }
@@ -144,12 +146,13 @@ pub fn decode_mov(
             let word = (first_byte & 0b00001000) > 0;
             let reg = first_byte & 0b00000111;
 
-            let mut data = second_byte as u16;
-            if word {
+            let data = if word {
                 let third_byte = instructions[offset + num_bytes_in_instruction];
-                data = u16::from_le_bytes([second_byte, third_byte]);
                 num_bytes_in_instruction += 1;
-            }
+                u16::from_le_bytes([second_byte, third_byte])
+            } else {
+                second_byte as u16
+            };
 
             writeln!(output, "mov {}, {}", get_register_name(reg, word), data)?;
 
@@ -168,37 +171,29 @@ pub fn decode_mov(
             //* by checking the mode != 0b00
             //? Displacements are signed even though the manual says unsigned?
             if mode != 0b00 {
-                let third_byte = instructions[offset + num_bytes_in_instruction];
-                num_bytes_in_instruction += 1;
-                let mut disp = third_byte as i16;
-
-                //* Check for 16bit displacement
-                if mode == 0b10 {
-                    let fourth_byte = instructions[offset + num_bytes_in_instruction];
-                    num_bytes_in_instruction += 1;
-                    disp = i16::from_le_bytes([third_byte, fourth_byte]);
-                }
+                let signed_disp = if mode == 0b10 {
+                    get_byte_or_word(instructions, offset, &mut num_bytes_in_instruction, true)
+                        as i16
+                } else {
+                    get_byte_or_word(instructions, offset, &mut num_bytes_in_instruction, false)
+                        as i16
+                };
 
                 //* No need to print displacement if it's 0
-                if disp != 0 {
+                if signed_disp != 0 {
                     if mode == 0b01 {
                         //* 8 bit displacement
-                        write!(source_addr_str, " + {}", disp as i8)?;
+                        write!(source_addr_str, " + {}", signed_disp as i8)?;
                     } else {
                         //* 16 bit displacement
-                        write!(source_addr_str, " + {}", disp)?;
+                        write!(source_addr_str, " + {}", signed_disp)?;
                     }
                 }
             }
 
-            let fifth_byte = instructions[offset + num_bytes_in_instruction];
-            num_bytes_in_instruction += 1;
-            let mut data = fifth_byte as u16;
-            //*Check if word or byte operation
+            let data = get_byte_or_word(instructions, offset, &mut num_bytes_in_instruction, word);
+
             if word {
-                let sixth_byte = instructions[offset + num_bytes_in_instruction];
-                num_bytes_in_instruction += 1;
-                data = u16::from_le_bytes([fifth_byte, sixth_byte]);
                 writeln!(output, "mov [{}], word {}", source_addr_str, data)?;
             } else {
                 writeln!(output, "mov [{}], byte {}", source_addr_str, data)?;
