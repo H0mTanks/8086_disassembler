@@ -31,7 +31,7 @@ fn execute_nasm(asm_filepath: &str) -> Result<()> {
 
     if first_command.execute_check_exit_status_code(0).is_err() {
         bail!(
-            "The path `{}` is not a correct FFmpeg executable binary file.",
+            "The path `{}` is not a correct nasm executable binary file.",
             NASM_PATH
         );
     }
@@ -47,7 +47,7 @@ fn decode_single_instruction(
 ) -> Result<NumBytesInInstruction> {
     let first_byte = instructions[offset];
     let num_bytes_in_instruction =
-        decoder.funcs[first_byte as usize](instructions, offset, output)?;
+        decoder.funcs[first_byte as usize](instructions, offset, output, decoder)?;
 
     Ok(num_bytes_in_instruction)
 }
