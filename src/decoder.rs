@@ -70,6 +70,20 @@ pub fn decode_mov(
                 //* Memory to register mode, where mode = 00 | 01 | 10
                 if mode == 0b00 && rm == 0b110 {
                     //TODO Direct address case
+                    let third_byte = instructions[offset + num_bytes_in_instruction];
+                    num_bytes_in_instruction += 1;
+
+                    let fourth_byte = instructions[offset + num_bytes_in_instruction];
+                    num_bytes_in_instruction += 1;
+
+                    let direct_address = i16::from_le_bytes([third_byte, fourth_byte]);
+
+                    writeln!(
+                        output,
+                        "mov {}, [{}]",
+                        get_register_name(reg, word),
+                        direct_address
+                    )?;
                 } else {
                     let mut source_addr_str = String::new();
                     write!(source_addr_str, "{}", MEM_ADDR_MODE_MAPPING[rm as usize])?;
