@@ -1,8 +1,4 @@
 use crate::*;
-use anyhow::{bail, Result};
-use std::process::Command;
-
-use execute::Execute;
 
 #[cfg(test)]
 mod tests {
