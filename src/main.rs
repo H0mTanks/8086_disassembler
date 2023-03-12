@@ -1,3 +1,6 @@
+#![allow(clippy::let_and_return)]
+#![allow(clippy::too_many_arguments)]
+
 mod constants;
 mod decoder;
 mod tests;
@@ -56,7 +59,7 @@ fn decode_instructions(decoder: &Decoder, instructions: &[u8], output: &mut Stri
     let mut bytes_processed = 0;
     while bytes_processed < instructions.len() {
         bytes_processed +=
-            decode_single_instruction(&decoder, &instructions, bytes_processed, output)? as usize;
+            decode_single_instruction(decoder, instructions, bytes_processed, output)?;
     }
 
     Ok(())

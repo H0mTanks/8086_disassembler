@@ -47,9 +47,9 @@ pub fn decode_from_group(
 ) -> Result<NumBytesInInstruction> {
     let first_byte = instructions[offset];
 
-    let row = if first_byte >= 0x80 && first_byte <= 0x83 {
+    let row = if (0x80..=0x83).contains(&first_byte) {
         0
-    } else if first_byte >= 0xD0 && first_byte <= 0xD3 {
+    } else if (0xD0..=0xD3).contains(&first_byte) {
         1
     } else if first_byte == 0xF6 || first_byte == 0xF7 {
         2
@@ -115,7 +115,7 @@ pub fn decode_mov(
 
     //* Immediate to memory
     {
-        let second_byte = instructions[offset + num_bytes_in_instruction as usize];
+        let second_byte = instructions[offset + num_bytes_in_instruction];
         let reg = (second_byte & 0b00111000) >> 3;
 
         let opcode = 0b1100011;
@@ -198,7 +198,7 @@ pub fn decode_add(
 
     //* Immediate to register/memory
     {
-        let second_byte = instructions[offset + num_bytes_in_instruction as usize];
+        let second_byte = instructions[offset + num_bytes_in_instruction];
 
         let reg = (second_byte & 0b00111000) >> 3;
         let opcode = 0b100000;
