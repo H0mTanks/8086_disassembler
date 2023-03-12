@@ -30,10 +30,18 @@ impl Decoder {
         funcs[0xB0..=0xBF].fill(decode_mov);
         funcs[0xc6..=0xC7].fill(decode_mov);
 
+        funcs[0x80..=0x83].fill(decode_from_group);
         //* ADD indices
         funcs[0x0..=0x5].fill(decode_add);
-        funcs[0x80..=0x83].fill(decode_from_group);
         groups[0b000] = decode_add;
+
+        //* SUB indices
+        funcs[0x28..=0x2D].fill(decode_sub);
+        groups[0b101] = decode_sub;
+
+        //*CMP indices
+        funcs[0x38..=0x3D].fill(decode_cmp);
+        groups[0b111] = decode_cmp;
 
         Self { funcs, groups }
     }
@@ -184,25 +192,83 @@ pub fn decode_add(
     output: &mut String,
     _: &Decoder,
 ) -> Result<NumBytesInInstruction> {
+    decode_add_sub_cmp(
+        "add",
+        0b000000,
+        0b100000,
+        0b0000010,
+        0b000,
+        instructions,
+        offset,
+        output,
+    )
+}
+
+pub fn decode_sub(
+    instructions: &[u8],
+    offset: usize,
+    output: &mut String,
+    _: &Decoder,
+) -> Result<NumBytesInInstruction> {
+    decode_add_sub_cmp(
+        "sub",
+        0b001010,
+        0b100000,
+        0b0010110,
+        0b101,
+        instructions,
+        offset,
+        output,
+    )
+}
+
+pub fn decode_cmp(
+    instructions: &[u8],
+    offset: usize,
+    output: &mut String,
+    _: &Decoder,
+) -> Result<NumBytesInInstruction> {
+    decode_add_sub_cmp(
+        "cmp",
+        0b001110,
+        0b100000,
+        0b0011110,
+        0b111,
+        instructions,
+        offset,
+        output,
+    )
+}
+
+pub fn decode_add_sub_cmp(
+    opname: &str,
+    reg_mem_to_reg_mem_opcode: u8,
+    imm_to_reg_mem_opcode: u8,
+    imm_to_acc_opcode: u8,
+    group_reg: u8,
+    instructions: &[u8],
+    offset: usize,
+    output: &mut String,
+) -> Result<NumBytesInInstruction> {
     let first_byte = instructions[offset];
     let mut num_bytes_in_instruction = 1;
 
-    //* Reg/Memory with register to either
+    //* Reg/Memory to reg/memory
     {
-        let opcode = 0b000000;
+        let opcode = reg_mem_to_reg_mem_opcode;
         if (first_byte >> 2) == opcode {
-            num_bytes_in_instruction = reg_mem_to_reg_mem("add", instructions, offset, output)?;
+            num_bytes_in_instruction = reg_mem_to_reg_mem(opname, instructions, offset, output)?;
             return Ok(num_bytes_in_instruction);
         }
     }
 
-    //* Immediate to register/memory
+    //* Immediate to reg/memory
     {
         let second_byte = instructions[offset + num_bytes_in_instruction];
 
         let reg = (second_byte & 0b00111000) >> 3;
-        let opcode = 0b100000;
-        if (first_byte >> 2) == opcode && reg == 0b000 {
+        let opcode = imm_to_reg_mem_opcode;
+        if (first_byte >> 2) == opcode && reg == group_reg {
             num_bytes_in_instruction += 1;
 
             //*Extract fields
@@ -222,13 +288,19 @@ pub fn decode_add(
                     is_data_16bit,
                 );
 
-                writeln!(output, "add {}, {}", get_register_name(rm, word), data)?;
+                writeln!(
+                    output,
+                    "{} {}, {}",
+                    opname,
+                    get_register_name(rm, word),
+                    data
+                )?;
             } else {
                 let is_data_16bit = !sign && word;
 
                 //* Immediate to memory case
                 imm_to_mem(
-                    "add",
+                    opname,
                     instructions,
                     offset,
                     &mut num_bytes_in_instruction,
@@ -245,13 +317,19 @@ pub fn decode_add(
 
     //* Immediate to accumulator
     {
-        let opcode = 0b0000010;
+        let opcode = imm_to_acc_opcode;
         if (first_byte >> 1) == opcode {
             let word = (first_byte & 0b00000001) > 0;
 
             let data = get_byte_or_word(instructions, offset, &mut num_bytes_in_instruction, word);
 
-            writeln!(output, "add {}, {}", get_register_name(0, word), data)?;
+            writeln!(
+                output,
+                "{} {}, {}",
+                opname,
+                get_register_name(0, word),
+                data
+            )?;
 
             return Ok(num_bytes_in_instruction);
         }
@@ -356,7 +434,14 @@ fn construct_address(
     rm: u8,
 ) -> Result<String> {
     let mut source_addr_str = String::new();
-    write!(source_addr_str, "{}", MEM_ADDR_MODE_MAPPING[rm as usize])?;
+
+    if mode == 0b00 && rm == 0b110 {
+        let direct_address =
+            get_byte_or_word(instructions, offset, num_bytes_in_instruction, true) as i16;
+        write!(source_addr_str, "{}", direct_address)?;
+    } else {
+        write!(source_addr_str, "{}", MEM_ADDR_MODE_MAPPING[rm as usize])?;
+    }
 
     //* Check if addr should have displacement
     //* by checking the mode != 0b00
@@ -409,6 +494,8 @@ fn imm_to_mem(
     } else {
         writeln!(output, "{} [{}], byte {}", opname, source_addr_str, data)?;
     }
+
+    // println!("{}", output.lines().last().unwrap());
 
     Ok(())
 }
