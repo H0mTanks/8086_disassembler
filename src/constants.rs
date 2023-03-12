@@ -33,4 +33,4 @@ pub fn get_byte_or_word(
     value
 }
 
-pub type NumBytesInInstruction = u8;
+pub type NumBytesInInstruction = usize;
