@@ -149,8 +149,6 @@ fn write_to_test_file(input_filepath: &str, outputs: Vec<String>) -> Result<Stri
     Ok(output_filename)
 }
 
-#[allow(overflowing_literals)]
-#[allow(arithmetic_overflow)]
 fn main() -> Result<()> {
     let filepath = "../computer_enhance/perfaware/part1/listing_0041_add_sub_cmp_jnz";
 
