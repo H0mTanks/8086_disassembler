@@ -171,9 +171,6 @@ fn main() -> Result<()> {
         print!("{}", line);
     }
 
-    let cb: usize = 0x1A2;
-    let btjt: usize = cb.wrapping_add((0xFA as i8) as usize);
-    println!("btjt: {:x}", btjt);
     // write_to_file(input_filepath, output)?;
     // write_to_test_file(output)?;
 

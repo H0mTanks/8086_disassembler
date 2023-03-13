@@ -287,7 +287,7 @@ pub fn decode_conditional_jump(
         output: label,
     });
 
-    return Ok(num_bytes_in_instruction);
+    Ok(num_bytes_in_instruction)
 }
 
 pub fn decode_add(
