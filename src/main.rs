@@ -5,11 +5,11 @@ mod constants;
 mod decoder;
 mod tests;
 
+use anyhow::Context;
 use execute::Execute;
 use std::process::Command;
 
 use std::{
-    fmt::Write,
     fs::{self, File},
     io::Write as IoWrite,
     path::PathBuf,
@@ -24,6 +24,7 @@ pub mod prelude {
 use decoder::*;
 use prelude::*;
 
+//* Outputs the assembled file in the same folder as asm_filepath
 fn execute_nasm(asm_filepath: &str) -> Result<()> {
     //*give output to nasm, then open test and compare bytes
     const NASM_PATH: &str = "nasm";
@@ -43,26 +44,61 @@ fn execute_nasm(asm_filepath: &str) -> Result<()> {
 }
 
 fn decode_single_instruction(
-    decoder: &Decoder,
+    decoder: &mut Decoder,
     instructions: &[u8],
     offset: usize,
-    output: &mut String,
+    outputs: &mut Vec<InstructionWithOffset>,
 ) -> Result<NumBytesInInstruction> {
+    let mut output = String::new();
+
     let first_byte = instructions[offset];
     let num_bytes_in_instruction =
-        decoder.funcs[first_byte as usize](instructions, offset, output, decoder)?;
+        decoder.funcs[first_byte as usize](instructions, offset, &mut output, decoder)?;
+
+    outputs.push(InstructionWithOffset { offset, output });
 
     Ok(num_bytes_in_instruction)
 }
 
-fn decode_instructions(decoder: &Decoder, instructions: &[u8], output: &mut String) -> Result<()> {
+fn decode_instructions(instructions: &[u8]) -> Result<Vec<String>> {
+    let mut outputs: Vec<InstructionWithOffset> = vec![];
+
+    let mut decoder = Decoder::new();
+
     let mut bytes_processed = 0;
     while bytes_processed < instructions.len() {
         bytes_processed +=
-            decode_single_instruction(decoder, instructions, bytes_processed, output)?;
+            decode_single_instruction(&mut decoder, instructions, bytes_processed, &mut outputs)?;
     }
 
-    Ok(())
+    for ins in &outputs {
+        println!("offset: {:x}\noutput: {}", ins.offset, ins.output);
+    }
+
+    for ins in decoder.enqued_labels {
+        println!("enq_offset: {:x}\nenq_output: {}\n", ins.offset, ins.output);
+
+        if let Ok(index) = outputs.binary_search(&InstructionWithOffset {
+            offset: ins.offset,
+            output: String::new(),
+        }) {
+            outputs.insert(
+                index,
+                InstructionWithOffset {
+                    offset: ins.offset,
+                    output: format!("{}:\n", ins.output),
+                },
+            );
+        }
+    }
+
+    let mut output_str_vec = Vec::new();
+    output_str_vec.push("bits 16\n\n".to_owned());
+    for ins in outputs {
+        output_str_vec.push(ins.output);
+    }
+
+    Ok(output_str_vec)
 }
 
 #[allow(dead_code)]
@@ -70,9 +106,9 @@ fn write_to_file(input_filepath: PathBuf, output: String) -> Result<()> {
     let output_filename = {
         let mut filename = input_filepath
             .file_name()
-            .unwrap()
+            .context("Could not locate the filename")?
             .to_str()
-            .unwrap()
+            .context("Filename is not valid, could not convert to string")?
             .to_owned();
 
         filename.push_str("_output.asm");
@@ -90,14 +126,14 @@ fn write_to_file(input_filepath: PathBuf, output: String) -> Result<()> {
 }
 
 #[allow(dead_code)]
-fn write_to_test_file(input_filepath: &str, output: String) -> Result<String> {
+fn write_to_test_file(input_filepath: &str, outputs: Vec<String>) -> Result<String> {
     let input_filepath = PathBuf::from_str(input_filepath)?;
     let output_filename = {
         let mut filename = input_filepath
             .file_name()
-            .unwrap()
+            .context("Could not locate the filename")?
             .to_str()
-            .unwrap()
+            .context("Filename is not valid, could not convert to string")?
             .to_owned();
 
         filename.push_str("_test.asm");
@@ -106,10 +142,15 @@ fn write_to_test_file(input_filepath: &str, output: String) -> Result<String> {
     };
 
     let mut output_file = File::create(&output_filename)?;
-    output_file.write_all(output.as_bytes())?;
+    for output in outputs {
+        output_file.write_all(output.as_bytes())?;
+    }
 
     Ok(output_filename)
 }
+
+#[allow(overflowing_literals)]
+#[allow(arithmetic_overflow)]
 fn main() -> Result<()> {
     let filepath = "../computer_enhance/perfaware/part1/listing_0041_add_sub_cmp_jnz";
 
@@ -120,18 +161,19 @@ fn main() -> Result<()> {
     execute_nasm(&correct_asm_filepath)?;
     let bytes_of_correct = fs::read(filepath)?;
 
-    let decoder = Decoder::new();
     let instructions = &bytes_of_correct;
 
     // println!("{:?}", instructions);
 
-    let mut output = String::new();
-    writeln!(output, "bits 16\n")?;
+    let outputs = decode_instructions(instructions)?;
 
-    decode_instructions(&decoder, instructions, &mut output)?;
+    for line in outputs {
+        print!("{}", line);
+    }
 
-    println!("{}", output);
-
+    let cb: usize = 0x1A2;
+    let btjt: usize = cb.wrapping_add((0xFA as i8) as usize);
+    println!("btjt: {:x}", btjt);
     // write_to_file(input_filepath, output)?;
     // write_to_test_file(output)?;
 

@@ -3,7 +3,7 @@ use crate::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Write;
+
     fn execute_nasm(asm_filepath: &str) -> Result<()> {
         //*give output to nasm, then open test and compare bytes
         const NASM_PATH: &str = "nasm";
@@ -30,17 +30,12 @@ mod tests {
 
         let correct = fs::read(filepath).unwrap();
 
-        let decoder = Decoder::new();
-
         let instructions = &correct;
         // println!("{:?}", instructions);
 
-        let mut output = String::new();
-        writeln!(output, "bits 16\n").unwrap();
+        let outputs = decode_instructions(instructions).unwrap();
 
-        decode_instructions(&decoder, instructions, &mut output).unwrap();
-
-        let asm_output_filename = write_to_test_file(filepath, output).unwrap();
+        let asm_output_filename = write_to_test_file(filepath, outputs).unwrap();
 
         execute_nasm(&asm_output_filename).unwrap();
 

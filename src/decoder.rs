@@ -2,18 +2,46 @@ use anyhow::Ok;
 
 use crate::prelude::*;
 
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
 
 pub type DecodeFunc = fn(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    decoder: &Decoder,
+    decoder: &mut Decoder,
 ) -> Result<NumBytesInInstruction>;
 
+#[derive(Debug)]
+pub struct InstructionWithOffset {
+    pub offset: usize,
+    pub output: String,
+}
+
+impl PartialOrd for InstructionWithOffset {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.offset.partial_cmp(&other.offset)
+    }
+}
+
+impl Ord for InstructionWithOffset {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.offset.cmp(&other.offset)
+    }
+}
+
+impl PartialEq for InstructionWithOffset {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset == other.offset
+    }
+}
+
+impl Eq for InstructionWithOffset {}
+
 pub struct Decoder {
-    pub funcs: [DecodeFunc; 0xF * 0xF],
+    pub funcs: [DecodeFunc; 0xFF],
     pub groups: [DecodeFunc; 8 * 4],
+    pub enqued_labels: Vec<InstructionWithOffset>,
+    pub labels: HashMap<usize, String>,
 }
 
 impl Decoder {
@@ -21,7 +49,7 @@ impl Decoder {
         let mut groups = [decode_stub as DecodeFunc; 8 * 4];
 
         //*Set all funcs to stub
-        let mut funcs = [decode_stub as DecodeFunc; 0xF * 0xF];
+        let mut funcs = [decode_stub as DecodeFunc; 0xFF];
 
         //* Set indices to MOV as per the machine instruction encoding table
         //TODO: 8C, 8E Segment register movs
@@ -43,7 +71,15 @@ impl Decoder {
         funcs[0x38..=0x3D].fill(decode_cmp);
         groups[0b111] = decode_cmp;
 
-        Self { funcs, groups }
+        funcs[0x70..=0x7F].fill(decode_conditional_jump);
+        funcs[0xE0..=0xE3].fill(decode_conditional_jump);
+
+        Self {
+            funcs,
+            groups,
+            enqued_labels: Vec::new(),
+            labels: HashMap::new(),
+        }
     }
 }
 
@@ -51,7 +87,7 @@ pub fn decode_from_group(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    decoder: &Decoder,
+    decoder: &mut Decoder,
 ) -> Result<NumBytesInInstruction> {
     let first_byte = instructions[offset];
 
@@ -82,7 +118,7 @@ pub fn decode_stub(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    _: &Decoder,
+    _: &mut Decoder,
 ) -> Result<NumBytesInInstruction> {
     Ok(0)
 }
@@ -91,7 +127,7 @@ pub fn decode_mov(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    _: &Decoder,
+    _: &mut Decoder,
 ) -> Result<NumBytesInInstruction> {
     let first_byte = instructions[offset];
     let mut num_bytes_in_instruction = 1;
@@ -186,11 +222,79 @@ pub fn decode_mov(
     unreachable!()
 }
 
+//TODO: Not thread safe because label generation uses a static mut
+pub fn decode_conditional_jump(
+    instructions: &[u8],
+    offset: usize,
+    output: &mut String,
+    decoder: &mut Decoder,
+) -> Result<NumBytesInInstruction> {
+    let first_byte = instructions[offset];
+    let second_byte = instructions[offset + 1];
+    let num_bytes_in_instruction = 2;
+
+    let byte_to_jump_to = {
+        let byte_at_start_of_instruction = offset;
+        let current_byte = byte_at_start_of_instruction + num_bytes_in_instruction;
+        current_byte.wrapping_add((second_byte as i8) as usize)
+    };
+
+    let jump_str = match first_byte {
+        0b01110100 => "je",
+        0b01111100 => "jl",
+        0b01111110 => "jle",
+        0b01110010 => "jb",
+        0b01110110 => "jbe",
+        0b01111010 => "jp",
+        0b01110000 => "jo",
+        0b01111000 => "js",
+        0b01110101 => "jne",
+        0b01111101 => "jnl",
+        0b01111111 => "jnle",
+        0b01110011 => "jnb",
+        0b01110111 => "jnbe",
+        0b01111011 => "jnp",
+        0b01110001 => "jno",
+        0b01111001 => "jns",
+        0b11100010 => "loop",
+        0b11100001 => "loope",
+        0b11100000 => "loopne",
+        0b11100011 => "jcxz",
+        _ => {
+            bail!("Invalid Conditional Jump opcode");
+        }
+    };
+
+    //*If label already exists, write the jump instruction and return
+    if let Some(label) = decoder.labels.get(&byte_to_jump_to) {
+        writeln!(output, "{} {}", jump_str, label)?;
+        return Ok(num_bytes_in_instruction);
+    }
+
+    //* Generate label
+    static mut LABEL_NUM: usize = 0;
+    let label = unsafe {
+        let string = format!("label{}", LABEL_NUM);
+        LABEL_NUM += 1;
+        string
+    };
+
+    writeln!(output, "{} {}", jump_str, label)?;
+
+    decoder.labels.insert(byte_to_jump_to, label.clone());
+    decoder.enqued_labels.push(InstructionWithOffset {
+        offset: byte_to_jump_to,
+        output: label,
+    });
+
+    return Ok(num_bytes_in_instruction);
+}
+
 pub fn decode_add(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    _: &Decoder,
+    _: &mut Decoder,
 ) -> Result<NumBytesInInstruction> {
     decode_add_sub_cmp(
         "add",
@@ -208,7 +312,7 @@ pub fn decode_sub(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    _: &Decoder,
+    _: &mut Decoder,
 ) -> Result<NumBytesInInstruction> {
     decode_add_sub_cmp(
         "sub",
@@ -226,7 +330,7 @@ pub fn decode_cmp(
     instructions: &[u8],
     offset: usize,
     output: &mut String,
-    _: &Decoder,
+    _: &mut Decoder,
 ) -> Result<NumBytesInInstruction> {
     decode_add_sub_cmp(
         "cmp",
