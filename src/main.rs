@@ -150,7 +150,7 @@ fn write_to_test_file(input_filepath: &str, outputs: Vec<String>) -> Result<Stri
 }
 
 fn main() -> Result<()> {
-    let filepath = "../computer_enhance/perfaware/part1/listing_0041_add_sub_cmp_jnz";
+    let filepath = format!("{}/{}", FILE_DIR, "listing_0041_add_sub_cmp_jnz");
 
     let mut correct_asm_filepath = filepath.to_owned();
     correct_asm_filepath.push_str(".asm");

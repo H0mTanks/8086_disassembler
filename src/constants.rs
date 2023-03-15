@@ -1,3 +1,5 @@
+pub const FILE_DIR: &str = "computer_enhance/perfaware/part1";
+
 const REGISTER_NAME_MAPPING: [&str; 16] = [
     "al", "ax", "cl", "cx", "dl", "dx", "bl", "bx", "ah", "sp", "ch", "bp", "dh", "si", "bh", "di",
 ];

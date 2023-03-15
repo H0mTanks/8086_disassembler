@@ -52,55 +52,45 @@ mod tests {
 
     #[test]
     fn single_register_mov_test() {
-        let (correct, bytes_to_test) = decode_bytes(
-            "../computer_enhance/perfaware/part1/listing_0037_single_register_mov",
-            true,
-        )
-        .unwrap();
+        let filepath = format!("{}/{}", FILE_DIR, "listing_0037_single_register_mov");
+
+        let (correct, bytes_to_test) = decode_bytes(&filepath, true).unwrap();
 
         assert_eq!(correct, bytes_to_test);
     }
 
     #[test]
     fn many_register_mov_test() {
-        let (correct, bytes_to_test) = decode_bytes(
-            "../computer_enhance/perfaware/part1/listing_0038_many_register_mov",
-            true,
-        )
-        .unwrap();
+        let filepath = format!("{}/{}", FILE_DIR, "listing_0038_many_register_mov");
+
+        let (correct, bytes_to_test) = decode_bytes(&filepath, true).unwrap();
 
         assert_eq!(correct, bytes_to_test);
     }
 
     #[test]
     fn more_movs_test() {
-        let (correct, bytes_to_test) = decode_bytes(
-            "../computer_enhance/perfaware/part1/listing_0039_more_movs",
-            true,
-        )
-        .unwrap();
+        let filepath = format!("{}/{}", FILE_DIR, "listing_0039_more_movs");
+
+        let (correct, bytes_to_test) = decode_bytes(&filepath, true).unwrap();
 
         assert_eq!(correct, bytes_to_test);
     }
 
     #[test]
     fn challenge_movs_test() {
-        let (correct, bytes_to_test) = decode_bytes(
-            "../computer_enhance/perfaware/part1/listing_0040_challenge_movs",
-            true,
-        )
-        .unwrap();
+        let filepath = format!("{}/{}", FILE_DIR, "listing_0040_challenge_movs");
+
+        let (correct, bytes_to_test) = decode_bytes(&filepath, true).unwrap();
 
         assert_eq!(correct, bytes_to_test);
     }
 
     #[test]
     fn add_sub_cmp_jnz_test() {
-        let (correct, bytes_to_test) = decode_bytes(
-            "../computer_enhance/perfaware/part1/listing_0041_add_sub_cmp_jnz",
-            true,
-        )
-        .unwrap();
+        let filepath = format!("{}/{}", FILE_DIR, "listing_0041_add_sub_cmp_jnz");
+
+        let (correct, bytes_to_test) = decode_bytes(&filepath, true).unwrap();
 
         assert_eq!(correct, bytes_to_test);
     }
